@@ -1,0 +1,166 @@
+/*
+* ADS1220RTD_Brewno_Library_V2 Keywords
+* Copyright (C) 2016 David Wiebe <WieBeBrewing.com>
+* This Library is licensed under a GPLv3 License.  See ADS1220RTD.h for License Details
+*/
+
+/******************************************INTRODUCTION*********************************************************/
+
+The Brewno V2 RTD shield is designed to work with the Arduino Uno.  The shield is open source; go to 
+wiebebrewing.com for all information required to build your own.
+
+The Brewno V2 RTD shield can interface with up to 4 separate 3-wire PT100 RTDs.  It communicates to the 
+shield using I2C meaning it only takes up two pins (A4 and A5).  Because it's I2C, other devices that use I2C on
+pins A4 and A5 can still be used with this shield as long as they have a different I2C address (these can typically
+be adjusted with most devices).
+
+The shields are stackable if you want to read more than 4 RTDs.  All that is required is that the I2C address of 
+any additional shield must be changed to a unique address to avoid communication conflicts.
+
+The default I2C address for this shield is 0x08.  If you would like to change the I2C address, you can change it 
+to any address you want with software.  See the built in change address function included below and the address 
+program example distributed with this library for further direction.
+
+See further below for details of the available functions in the ADS1220RTD_Brewno_Library_V2.  One of the goals
+of the shield design and this library was to keep the user interface relatively simple.  If you look at the 
+ADS1220 datasheet there are a lot of setting options.  Some are not applicable given the board design.  Some
+are applicable but shouldn't be used.  Most of the setting details are taken care of by the microprocessor on
+the RTD shield.  The user still has access to key inputs such as Gain, SPS and RTD specific parameters.
+
+See function section below and example code for details on how to use the library.
+
+
+/******************************************DESIGN SCOPE*********************************************************/
+I designed and built a V1 RTD shield which is also available.  It is also designed to work with an Arduino Uno, but
+does not have it's own microprocessor and can only read 2 RTDS.  When designing the V2 shield, the following scope 
+was set:
+- shield to contain it's own microprocesser to perform readings and calculations inorder to free up the 
+	Arduino processor and I/O pins for other tasks
+- interface with up to 4 RTDs
+- keep the Arduino Library simple while still providing enough flexibility to the user
+- reduce the number of components on the board vs V1 by only using one ADS1220 chip and by adding a 
+	multiplexer / switches
+- maintain the analogue filter circuit as it is key to providing stable readings even at higher SPS
+- change to 0603 size SMDs to reduce circuit footprint
+
+
+/******************************************OUT OF SCOPE*********************************************************/
+
+2-Wire and 4-Wire
+Currently the V2 shield only reads 3-wire RTDs; not 2 or 4 wire RTDS.  If there is enough demand
+the shield could be redesigned to accomodate both 3 or 4 wire RTDs, but as 3-wires are more common and still 
+provide excellent accuracy this was out of scope for V2.
+2-Wires could also be incorporated but I don't see why anyone would use a 2-wire to be honest (besides happening
+to have one laying around).
+
+Thermocouples
+If there is enough demand, I believe the shield could be modified without too much effort to provide the 
+option of reading thermocouples as well. I have not looked into this too much yet, but this could be a future
+development.
+
+PT1000
+PT1000 RTDs are not currently supported.  There is no plan to incorporate PT1000 RTDs as there are design challenges 
+with the ADS1220 chip and the analog filter cicruit when using a PT1000 RTD. The analog filter could be deleted to 
+easily read the PT1000 RTDs, but the filter is a key part of why this shield provides such stable readings.  If you 
+would like to read a PT1000 without a filter, there is an alternate RTD shield available on the market with no hardware
+filtering but additional flexibility (ie. reading PT1000, 2 wire and 4 wire RTDs).
+
+/******************************************LIBRARY FUNCTIONS*****************************************************/
+
+ADS1220RTD(int address, unsigned char userGain, unsigned char userSPS, float user_a, float user_b)
+	Definition: Class Initialization Function to be called at the very beginning of the code
+		to create a new instance of the shield class.  Create one new instance per RTD shield being used
+	Parameters:
+		address - I2C slave address; 0x08 by default for shield
+		userGain - Gain for ADS1220 readings.  The higher the gain, the narrower the temperature reading
+			band is but finer resolution is avaiable.  A gain of 32 will allow readings from -40C to 150C
+			Available Gain values are:
+				1, 2 4, 8, 16, 32, 64, 128
+			If an invalid gain is input, the microprocessor will freeze until a proper value is received
+		userSPS - Samples per Second.  The slower the SPS, the more accurate and stable the readings.  Thanks
+			to the analogue filter though, high SPS readings can be used while achieving stable readings.
+			An SPS of 90 is suggested as a good balance.  Since one ADS1220 chip is reading 4 RTDs, the
+			actual sample rate achieved per RTD is slower.  For a SPS setting of 90, the user will see a
+			sample rate of about 22SPS per RTD.  Still faster than most applications will need.  This can
+			of course be increased to achieve faster sample rates at the cost of some stability.  A setting 
+			of 180SPS would provide a sample rate of about 45SPS per RTD.  The fastest available setting is 
+			2000SPS which should theoretically give the user a sample rate of about 500SPS per RTD; actual will 
+			be a bit slower due to some processing time required. Available settings are:
+				20, 40, 90, 180, 350, 660, 1200, 2000
+		user_a - 'a' parameter to be used in the Callendar Van Dusen Formula.  Most PT100 RTDs have an alpha
+			value of 0.00385 which corresponds to an 'a' value of 0.0039083.  Check your RTD datasheet 
+			to be sure.  If you want more information on these coefficients, the following link is 
+			short and informative: http://www.itsirl.com/admin/pdfmanual/1399021951CalVan.pdf
+		user_b - 'b' parameter to be used in the Callendar Van Dusen Formula.  Most PT100 RTDs have an alpha
+			value of 0.00385 which corresponds to a 'b' value of -0.0000005775.  Check your RTD datasheet 
+			to be sure.  If you want more information on these coefficients, the following link is 
+			short and informative: http://www.itsirl.com/admin/pdfmanual/1399021951CalVan.pdf
+
+
+void rtdInitialization()
+	Definition: Initializes the RTD shield with the settings defined by the user when they created their new
+			instance of the ADS1220RTD class (see above function).  This function must be called once
+			in the Setup() code before the shield will start taking any readings.
+	Parameters: None; uses values from class initialization
+
+void offsetCalibration()
+	Definition: Tells the shield to have the ADS1220 chip do an internal offset calibration.  This is called 
+		by the rtdInitialization function and is not always needed.  It can be useful though if the shield
+		ambient conditions change drastically. 
+	Parameters: None
+
+void reset()
+	Definition: Tells the shield to reset the ADS1220 chip to default register settings.  This function is made
+		availabe but should not need to be called by the user.  On shield power up a reset of the ADS1220
+		chip is always performed.
+	Parameters: None
+
+long int getRTDBytes(int index)
+	Definition: Returns the raw Byte information for the requested rtd.  Note that the ADS1220 is a 24-bit 
+		chip, so this function converts this to a 32-bit format for convienience.  This function
+		should not typically be required by the user unless they want to process the information 
+		themselves (which somewhat defeats the purpose of having the onboard shield microchip)
+	Parameter: RTD# that the user wants to read but minus 1.  For example, if you want to read RTD#1, input 0.  
+		For RTD#2, input 1.  User can also request the internal Offset value by inputing 4.  Acceptable 
+		parameters are:
+			0, 1, 2, 3, 4 (0 - 3 are for RTDS, 4 is for internal Offset Value)
+
+float getResistance(int rtd)
+	Definition: Returns a resistance value in ohms for the requested rtd.  This function can be used if the 
+		user wants to check resistance values, or if they want to use a look up table instead of the
+		Callendar Van Dusen Formula that the shield microchip controller uses.
+	Parameter: RTD# that the user wants to read but minus 1.  For example, if you want to read RTD#1, input 0.  
+		For RTD#2, input 1.  User can also request the internal Offset in terms of ohms by inputing 4.  
+		Acceptable parameters are:
+			0, 1, 2, 3, 4 (0 - 3 are for RTDS, 4 is for internal Offset Value)
+
+float getTemperatureC(int rtd)
+	Definition: Returns a temperature value in degrees C that the shield calculates using the Callendar
+		Van Dusen Formula.
+	Parameter: RTD# that the user wants to read but minus 1.  For example, if you want to read RTD#1, input 0.  
+		For RTD#2, input 1.  Acceptable parameters are:  
+			0, 1, 2, 3
+
+float getTemperatureF(int rtd)
+	Definition: Returns a temperature value in degrees F that the shield calculates.  Note that this calculation
+		is a conversion of the degrees C reading as all the Callendar Van Dusen parameters are metric.		
+	Parameter: RTD# that the user wants to read but minus 1.  For example, if you want to read RTD#1, input 0.  
+		For RTD#2, input 1.  Acceptable parameters are:  
+			0, 1, 2, 3
+
+void changeSlaveAddress(unsigned char newAddress)
+	Definition: Used to change the I2C address of the shield.  The shield's default address is 0x08.  This
+		function is only needed if the user is using more than one I2C device with the same address
+		(ie. using two Brewno RTD shields stacked on one another).  This function should NOT be used
+		as part of a normal program as it will not function correctly.  This function is to be used 
+		with a standalone program with the sole purpose of updating the device I2C slave address. After
+		calling this function, the arduino and shield must be powered down before the address is updated. 
+		The user should only have one I2C device connected when calling this function.
+	Parameter: New I2C slave address for the Brewno RTD shield.  User should not use any of the reserved 
+		addresses.  To be safe, the user may use the following guideline: 0x07 < slaveAddress < 0x78 
+	
+		
+
+			
+
+			

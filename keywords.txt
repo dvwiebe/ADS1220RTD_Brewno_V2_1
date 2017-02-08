@@ -1,0 +1,15 @@
+/*
+* ADS1220RTD_Brewno_Library_V2 Keywords
+* Copyright (C) 2016 David Wiebe <WieBeBrewing.com>
+* This Library is licensed under a GPLv3 License.  See ADS1220RTD.h for License Details
+*/
+
+ADS1220RTD	KEYWORD1
+rtdInitialize	KEYWORD2
+offsetCalibration	KEYWORD2
+reset			KEYWORD2
+getRTDBytes		KEYWORD2
+getResistance		KEYWORD2
+getTemperatureC		KEYWORD2
+getTemperatureF		KEYWORD2
+changeSlaveAddress	KEYWORD2
