@@ -7,9 +7,9 @@
 ADS1220RTD	KEYWORD1
 rtdInitialize	KEYWORD2
 offsetCalibration	KEYWORD2
-reset			KEYWORD2
-getRTDBytes		KEYWORD2
-getResistance		KEYWORD2
-getTemperatureC		KEYWORD2
-getTemperatureF		KEYWORD2
+reset	KEYWORD2
+getRTDBytes	KEYWORD2
+getResistance	KEYWORD2
+getTemperatureC	KEYWORD2
+getTemperatureF	KEYWORD2
 changeSlaveAddress	KEYWORD2
